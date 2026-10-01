@@ -6,9 +6,13 @@ This repository contains a small single-file terminal text editor (src/editor.c)
 
 ## Demo
 
-<video src="assests/demo2.mp4" controls width="960" playsinline>
-  Your browser does not support the video tag.
-</video>
+
+https://github.com/user-attachments/assets/86ba615b-51c3-497a-a7db-96e84a84bf58
+
+
+
+
+
 
 Version
 - 0.0.1 (see src/editor.c: version)
