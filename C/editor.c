@@ -893,8 +893,9 @@ void editorDrawRows(struct abuf *ab){
         }
         else{
             char line_width_buffer[100];
-            snprintf(line_width_buffer , sizeof(line_width_buffer) , "%*d|" , E.line_no_width , fileRow + 1);
+            snprintf(line_width_buffer , sizeof(line_width_buffer) , "\x1b[90m%*d|" , E.line_no_width , fileRow + 1);
             abAppend( ab , line_width_buffer , strlen(line_width_buffer));
+            abAppend( ab , "\x1b[39m" , 5 );
             int len = E.row[fileRow].rsize - E.colOff;
             if(len < 0){
                 len = 0;
