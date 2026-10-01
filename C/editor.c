@@ -62,11 +62,13 @@ struct editorSyntax{
 };
 
 typedef struct erow{
+    int idx;
     int size;
     int rsize;
     char *chars;
     char *render;
     unsigned char *hl;
+    int hl_open_mlcomment;
 }erow;
 
 struct editorConfig{
@@ -311,14 +313,14 @@ void editorUpdateSyntax(erow *row){
 
     int prev_sep = 1;
     int in_string = 0;
-    int in_multiline_comment = 0;
+    int in_multiline_comment = ( row->idx > 0 && E.row[row->idx -1].hl_open_mlcomment );
     
     int i=0;
     while(i < row->rsize ){
         char c = row->render[i];
         unsigned char prev_hl = (i > 0) ? row->hl[i-1] : HL_NORMAL;
 
-        if( scs_len && !in_string ){
+        if( scs_len && !in_string && !in_multiline_comment){
             if( !strncmp( scs , &row->render[i] , scs_len )){
                 memset( &row->hl[i] , HL_COMMENT , row->rsize - i );
                 break;
@@ -326,7 +328,26 @@ void editorUpdateSyntax(erow *row){
         }
 
         if( mcs_len && mce_len && !in_string ){
-            
+            if(in_multiline_comment){
+                row->hl[i] = HL_MLCOMMENT;
+                if( !strncmp( &row->render[i] , mce , mce_len ) ){
+                    memset( &row->hl[i] , HL_MLCOMMENT , mce_len);
+                    in_multiline_comment = 0;
+                    prev_sep = 1;
+                    i+=mce_len;
+                    continue;
+                }
+                else{
+                    i++;
+                    continue;
+                }
+            }
+            else if( !strncmp( &row->render[i] , mcs , mcs_len ) ){
+                memset( &row->hl[i] , HL_MLCOMMENT , mcs_len);
+                in_multiline_comment = 1;
+                i+=mcs_len;
+                continue;
+            }
         }
 
         if(E.syntax->flags & HL_HIGHLIGHT_STRINGS){
@@ -387,6 +408,13 @@ void editorUpdateSyntax(erow *row){
 
         prev_sep = is_seperator(c);
         i++;
+    }
+    int changed = (row->hl_open_mlcomment != in_multiline_comment);
+    if(changed){
+        row->hl_open_mlcomment = in_multiline_comment;
+        if(row->idx+1 < E.numrows){
+            editorUpdateSyntax(&E.row[row->idx+1]);
+        }
     }
 }
 
@@ -506,9 +534,15 @@ void editorInsertRow(char * s ,size_t len , int at){
     E.row[at].rsize = 0;
     E.row[at].render = NULL;
     E.row[at].hl = NULL;
+    E.row[at].idx = at;
+    E.row[at].hl_open_mlcomment = 0;
     editorUpdateRow( &E.row[at] );
     E.numrows++;
     E.dirty = 1;
+    for(int j = at+1 ; j < E.numrows ; j++){
+        E.row[at].idx = j;
+    }
+
 }
 
 void editorFreeRow(erow *row){
@@ -527,6 +561,9 @@ void editorDelRow( int at ){
     memmove(&E.row[at] , &E.row[at+1] , sizeof(erow)*(E.numrows -1 - at));
     E.numrows--;
     E.dirty = 1;
+    for(int j = at ; j < E.numrows; j++){
+        E.row[at].idx = j;
+    }
 }
 
 void editorRowInsertChar (erow *row ,int at , int c){
@@ -1090,7 +1127,14 @@ void editorProcessKeyPress(){
         case ctrl_key('l'):
         case '\x1b':
             break;
-
+        
+        case 31:
+        // CTRL + / FOR COMMENT
+            if( 1 ){
+                editorInsertChar('/');
+                editorInsertChar('/');
+                break;
+            }
         default:
             editorInsertChar(c);
     }
