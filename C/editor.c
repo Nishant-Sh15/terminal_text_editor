@@ -111,8 +111,8 @@ void error(){
 char *C_HL_EXTENSIONS[]={ ".c" , ".h" , ".cpp" , ".txt" , NULL};
 
 char *C_HL_Keywords[] = {
-    "switch", "if", "while", "for", "break", "continue", "return", "else", "struct", "union", "typedef", "static", "enum", "class", "case", "include",
-    "int|", "long|", "double|", "float|", "char|", "unsigned|", "signed|", "void|", NULL
+    "switch", "if", "while", "for", "break", "continue", "return", "else", "struct", "union", "typedef", "static", "enum", "class", "case", 
+    "include|", "int|", "long|", "double|", "float|", "char|", "unsigned|", "signed|", "void|", NULL
 };
 struct editorSyntax HLDB[]={
     {
@@ -157,7 +157,7 @@ void die_tcgetattr(int fd ,  struct termios * p ){
 void exitRawMode(){
     die_tcsetattr( STDIN_FILENO , TCSAFLUSH , &E.original_termios );
     // printf("%d\n%d",E.screenCols,E.screenRows);
-    // write(STDOUT_FILENO, "\x1b[?1049l", 8);
+    write(STDOUT_FILENO, "\x1b[?1049l", 8);
 }
 void rawMode(){
     atexit(exitRawMode);
@@ -290,7 +290,7 @@ int getWindowSize( int * rows , int * cols ){
 
 // --------------syntax highlighting-------------------
 int is_seperator(int c){
-    return ( isspace(c) ) || ( c == '\0' ) || ( strchr( ",()+-/*=~%<>[];#" , c) != NULL );
+    return ( isspace(c) ) || ( c == '\0' ) || ( strchr( ",()+-/*=~%<>[];#{}" , c) != NULL );
 }
 void editorUpdateSyntax(erow *row){
     free(row->hl);
@@ -421,18 +421,18 @@ void editorUpdateSyntax(erow *row){
 int editorSyntaxToColor(int hl){
     switch (hl){
         case HL_KEYWORD1:
-            return 33;
+            return 35;
         case HL_KEYWORD2:
-            return 32;
-        case HL_NUMBER:
             return 31;
+        case HL_NUMBER:
+            return 34;
         case HL_MLCOMMENT:
         case HL_COMMENT:
-            return 36;
+            return 32;
         case HL_STRING:
-            return 35;
+            return 33;
         case HL_MATCH:
-            return 34;
+            return 93;
         default:
             return 37;
     }
@@ -1165,7 +1165,7 @@ void initEditor(){
 }
 
 int main( int argc , char *argv[]){
-    // write(STDOUT_FILENO, "\x1b[?1049h", 8);
+    write(STDOUT_FILENO, "\x1b[?1049h", 8);
     rawMode();
     initEditor();
     if(argc >=2 ){
