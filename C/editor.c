@@ -72,6 +72,7 @@ typedef struct erow{
 }erow;
 
 struct editorConfig{
+    int line_no_width;
     int cx,cy;
     int rx;
     int screenRows;
@@ -107,7 +108,7 @@ void error(){
 }
 
 
-// -------------------prototypes
+// -------------------file format
 char *C_HL_EXTENSIONS[]={ ".c" , ".h" , ".cpp" , ".txt" , NULL};
 
 char *C_HL_Keywords[] = {
@@ -132,6 +133,7 @@ struct editorSyntax HLDB[]={
 void editorSetStatusMessage( char *fmt , ... );
 void editorRefreshScreen();
 char *editorPrompt(char *prompt , void (*callback)( char * , int ));
+void update_line_no_width();
 
 // ----------------terminal
 void die(char *s){
@@ -527,10 +529,25 @@ void editorInsertRow(char * s ,size_t len , int at){
 
     memmove(&E.row[at + 1] , &E.row[at] , (E.numrows - at)*sizeof(erow) );
 
-    E.row[at].chars=malloc( len + 1 );
-    memcpy(E.row[at].chars , s , len);
-    E.row[at].chars[len] = '\0';
-    E.row[at].size = len;
+    int tab_count =0;
+    if(len == 0 ){
+        if(at > 0){
+            char * c = E.row[at - 1].chars;
+            for( int j = 0; c[j] == '\t' ;j++){
+                tab_count++;
+            }
+        }
+    }
+
+    E.row[at].chars=malloc( len + tab_count + 1 );
+
+    memset( E.row[at].chars , '\t' , tab_count );
+    memcpy(E.row[at].chars + tab_count , s , len);
+    E.row[at].size = len + tab_count;
+
+    E.row[at].chars[len + tab_count] = '\0';
+    E.cx = tab_count;
+
     E.row[at].rsize = 0;
     E.row[at].render = NULL;
     E.row[at].hl = NULL;
@@ -538,6 +555,7 @@ void editorInsertRow(char * s ,size_t len , int at){
     E.row[at].hl_open_mlcomment = 0;
     editorUpdateRow( &E.row[at] );
     E.numrows++;
+    update_line_no_width();
     E.dirty = 1;
     for(int j = at+1 ; j < E.numrows ; j++){
         E.row[at].idx = j;
@@ -611,14 +629,15 @@ void editorInsertNewLine(){
     }
     else{
         erow *row = &E.row[E.cy];
+        int new_len = E.cx;
         editorInsertRow( &row->chars[E.cx] , row->size - E.cx , E.cy + 1);
         row = &E.row[E.cy];
-        row->size = E.cx;
-        row->chars[row->size] = '\0';
+        row->size = new_len;
+        row->chars[new_len] = '\0';
         editorUpdateRow(row);
     }
     E.cy++;
-    E.cx=0;
+    // E.cx=0;
 }
 
 void editorDelChar(){
@@ -838,6 +857,16 @@ void editorScroll(){
     }
 }
 
+void update_line_no_width(){
+    int width = 1;
+    int t= E.numrows;
+    while(t > 0){
+        width++;
+        t/=10;
+    }
+    E.line_no_width = width;
+}
+
 void editorDrawRows(struct abuf *ab){
     for(int y=0; y < E.screenRows ; y++ ){
         int fileRow = y + E.rowOff;
@@ -863,6 +892,9 @@ void editorDrawRows(struct abuf *ab){
             }
         }
         else{
+            char line_width_buffer[100];
+            snprintf(line_width_buffer , sizeof(line_width_buffer) , "%*d|" , E.line_no_width , fileRow + 1);
+            abAppend( ab , line_width_buffer , strlen(line_width_buffer));
             int len = E.row[fileRow].rsize - E.colOff;
             if(len < 0){
                 len = 0;
@@ -953,7 +985,7 @@ void editorRefreshScreen(){
     editorDrawMessageBar( &ab );
     // --------------------------------cursor positioning--------------------------
     char buf[32];
-    snprintf( buf , sizeof(buf) , "\x1b[%d;%dH" , ( E.cy - E.rowOff ) + 1 , ( E.rx-E.colOff ) +1 );
+    snprintf( buf , sizeof(buf) , "\x1b[%d;%dH" , ( E.cy - E.rowOff ) + 1 , ( E.rx-E.colOff ) +1 + E.line_no_width +1);
     abAppend( &ab , buf , strlen(buf) );
 
     // abAppend( &ab ,"\x1b[H" , 3 );
@@ -1150,6 +1182,7 @@ void initEditor(){
     E.cy = 0;
     E.rx = 0;
     E.numrows=0;
+    E.line_no_width = 0;
     E.row = NULL;
     E.rowOff = 0;
     E.colOff = 0;
